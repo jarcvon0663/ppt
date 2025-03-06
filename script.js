@@ -1,130 +1,149 @@
-const computer = document.querySelector(".computer img");
-const player = document.querySelector(".player img");
+// script.js
+const computerImg = document.querySelector(".computer img");
+const playerImg = document.querySelector(".player img");
 const computerPoints = document.querySelector(".computerPoints");
 const playerPoints = document.querySelector(".playerPoints");
 const options = document.querySelectorAll(".options button");
+const roomInfo = document.getElementById("roomInfo");
 
-// Variables para el sistema de salas
 let currentRoom = null;
 let playerNumber = null;
+let playerRef = null;
 
-// Función para generar un ID de sala aleatorio
+// Generar ID de sala
 function generateRoomID() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+// Crear sala
 function createRoom() {
   const roomID = generateRoomID();
-  const roomRef = database.ref("rooms/" + roomID);
+  currentRoom = roomID;
+  playerNumber = 1;
 
-  roomRef.set({
-    player1: { choice: "", points: 0 },
-    player2: { choice: "", points: 0 },
-    turn: "player1"
+  database.ref(`rooms/${roomID}`).set({
+    player1: { choice: "piedra", points: 0 }, // Piedra por defecto
+    player2: null
   }).then(() => {
-    sessionStorage.setItem("roomID", roomID);
-    sessionStorage.setItem("playerRole", "player1");
-    currentRoom = roomID;
-    playerNumber = 1;
-    document.getElementById("roomInfo").innerText = "Sala creada con ID: " + roomID;
-    alert("Sala creada. Comparte este ID con tu amigo: " + roomID);
-  }).catch((error) => {
-    console.error("Error al crear la sala:", error);
+    playerRef = database.ref(`rooms/${currentRoom}/player1`);
+    setupListeners();
+    setupDisconnectHandler();
+    roomInfo.textContent = `Sala creada: ${roomID}`;
+    alert(`Sala creada: ${roomID} (Comparte este ID)`);
   });
 }
 
+// Unirse a sala
 function joinRoom() {
-  const roomID = document.getElementById("roomIDInput").value.trim();
-  if (!roomID) {
-    alert("Por favor, ingresa un ID de sala válido.");
-    return;
-  }
+  const roomID = document.getElementById("roomIDInput").value.trim().toUpperCase();
+  if (!roomID) return alert("Ingresa un ID válido");
 
-  const roomRef = database.ref("rooms/" + roomID);
-
-  roomRef.once("value", (snapshot) => {
+  database.ref(`rooms/${roomID}`).once("value").then(snapshot => {
     const roomData = snapshot.val();
+    if (!roomData) return alert("Sala no existe");
+    if (roomData.player2) return alert("Sala llena");
 
-    if (!roomData) {
-      alert("La sala no existe.");
-      return;
-    }
+    currentRoom = roomID;
+    playerNumber = 2;
 
-    if (!roomData.player2.choice) {
-      roomRef.child("player2").update({ choice: "", points: 0 });
-      sessionStorage.setItem("roomID", roomID);
-      sessionStorage.setItem("playerRole", "player2");
-      currentRoom = roomID;
-      playerNumber = 2;
-      document.getElementById("roomInfo").innerText = "Unido a la sala: " + roomID;
-    } else {
-      alert("La sala ya está llena.");
+    database.ref(`rooms/${currentRoom}/player2`).set({
+      choice: "piedra", // Piedra por defecto
+      points: 0
+    }).then(() => {
+      playerRef = database.ref(`rooms/${currentRoom}/player2`);
+      setupListeners();
+      setupDisconnectHandler();
+      roomInfo.textContent = `Unido a: ${roomID}`;
+    });
+  });
+}
+
+// Configurar listeners
+function setupListeners() {
+  database.ref(`rooms/${currentRoom}`).on("value", snapshot => {
+    const room = snapshot.val();
+    if (!room) return;
+
+    // Actualizar imágenes
+    computerImg.src = playerNumber === 1 
+      ? `./img/${room.player2?.choice || 'piedra'}Computer.png` 
+      : `./img/${room.player1.choice}Computer.png`;
+    
+    playerImg.src = playerNumber === 1 
+      ? `./img/${room.player1.choice}Player.png` 
+      : `./img/${room.player2.choice}Player.png`;
+
+    // Actualizar puntos
+    computerPoints.textContent = playerNumber === 1 
+      ? room.player2?.points || 0 
+      : room.player1.points;
+    
+    playerPoints.textContent = playerNumber === 1 
+      ? room.player1.points 
+      : room.player2.points;
+
+    // Verificar elecciones
+    if (room.player1.choice && room.player2?.choice) {
+      determineWinner(room);
     }
   });
 }
 
-// Lógica del juego
-options.forEach((option) => {
+// Determinar ganador
+function determineWinner(room) {
+  const p1 = room.player1;
+  const p2 = room.player2;
+  
+  let winner = "";
+  if (p1.choice === p2.choice) {
+    winner = "¡Empate!";
+  } else if (
+    (p1.choice === "piedra" && p2.choice === "tijeras") ||
+    (p1.choice === "papel" && p2.choice === "piedra") ||
+    (p1.choice === "tijeras" && p2.choice === "papel")
+  ) {
+    winner = "¡Jugador 1 gana!";
+    updatePoints("player1");
+  } else {
+    winner = "¡Jugador 2 gana!";
+    updatePoints("player2");
+  }
+  alert(winner);
+}
+
+// Actualizar puntos
+function updatePoints(winner) {
+  database.ref(`rooms/${currentRoom}/${winner}/points`).transaction(points => {
+    return (points || 0) + 1;
+  });
+}
+
+// Manejar elecciones
+options.forEach(option => {
   option.addEventListener("click", () => {
-    if (!currentRoom) {
-      alert("Debes crear o unirte a una sala primero.");
-      return;
-    }
-
-    const playerChoice = option.innerHTML.toLowerCase();
-    player.classList.add("shakePlayer");
-    computer.classList.add("shakeComputer");
-
-    setTimeout(() => {
-      player.classList.remove("shakePlayer");
-      computer.classList.remove("shakeComputer");
-
-      // Guardar la elección en Firebase
-      const playerRef = database.ref(`rooms/${currentRoom}/player${playerNumber}`);
-      playerRef.update({ choice: playerChoice });
-    }, 900);
+    if (!currentRoom) return alert("Únete o crea una sala primero");
+    
+    const choice = option.textContent.toLowerCase();
+    playerRef.update({ choice: choice });
   });
 });
 
-// Escuchar cambios en Firebase para actualizar la UI
-const roomRef = database.ref("rooms/");
-roomRef.on("value", (snapshot) => {
-  const roomData = snapshot.val();
-  if (!roomData || !currentRoom) return;
-
-  const room = roomData[currentRoom];
-  if (!room) return;
-
-  const player1Choice = room.player1.choice;
-  const player2Choice = room.player2.choice;
-
-  if (player1Choice && player2Choice) {
-    player.src = `./img/${player1Choice}Player.png`;
-    computer.src = `./img/${player2Choice}Computer.png`;
-
-    let p1Points = room.player1.points;
-    let p2Points = room.player2.points;
-    let winner = "";
-
-    if (player1Choice === player2Choice) {
-      winner = "Empate!";
-    } else if (
-      (player1Choice === "piedra" && player2Choice === "tijeras") ||
-      (player1Choice === "papel" && player2Choice === "piedra") ||
-      (player1Choice === "tijeras" && player2Choice === "papel")
-    ) {
-      winner = "¡Jugador 1 gana esta ronda!";
-      p1Points++;
-    } else {
-      winner = "¡Jugador 2 gana esta ronda!";
-      p2Points++;
+// Limpiar al desconectar
+function setupDisconnectHandler() {
+  playerRef.onDisconnect().remove().then(() => {
+    if (playerNumber === 1) {
+      database.ref(`rooms/${currentRoom}`).remove();
     }
+  });
+}
 
-    alert(winner);
-
-    database.ref(`rooms/${currentRoom}/player1`).update({ points: p1Points });
-    database.ref(`rooms/${currentRoom}/player2`).update({ points: p2Points });
-    playerPoints.innerHTML = p1Points;
-    computerPoints.innerHTML = p2Points;
+// Cargar estado al recargar
+window.addEventListener("load", () => {
+  const savedRoom = sessionStorage.getItem("roomID");
+  if (savedRoom) {
+    currentRoom = savedRoom;
+    playerNumber = sessionStorage.getItem("playerRole") === "player1" ? 1 : 2;
+    playerRef = database.ref(`rooms/${currentRoom}/player${playerNumber}`);
+    setupListeners();
   }
 });

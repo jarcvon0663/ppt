@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Piedra, Papel o Tijeras</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./img/favicon-16x16.png">
+  <link rel="manifest" href="./img/site.webmanifest">
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="message">Elige</div>
+
+    <div class="images">
+      <div class="computer">
+        <img src="./img/piedraComputer.png" alt="Elección de la computadora">
+      </div>
+      <div class="player">
+        <img src="./img/piedraPlayer.png" alt="Tu elección">
+      </div>
+    </div>
+
+    <div class="points">
+      Adversario <span class="computerPoints">0</span> /
+      <span class="playerPoints">0</span> Jugador
+    </div>
+
+    <div class="options">
+      <button type="button">Piedra</button>
+      <button type="button">Papel</button>
+      <button type="button">Tijeras</button>
+    </div>
+
+    <!-- Sección para crear o unirse a una sala -->
+    <div class="room">
+      <button onclick="createRoom()">Crear Sala</button>
+      <input type="text" id="roomIDInput" placeholder="ID de la sala">
+      <button onclick="joinRoom()">Unirse</button>
+    </div>
+
+    <p id="roomInfo"></p> <!-- Aquí se mostrará el ID de la sala -->
+
+  </div>
+
+  <!-- Firebase -->
+  <!-- Firebase (Versión 8.10.1 para evitar errores de módulos) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <!-- Inicializar Firebase -->
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyD3YunBSi47iWJrfme8C7ELH6PBZNmeWfc",
+      authDomain: "juego-ppt-807663.firebaseapp.com",
+      databaseURL: "https://juego-ppt-807663-default-rtdb.firebaseio.com",
+      projectId: "juego-ppt-807663",
+      storageBucket: "juego-ppt-807663.appspot.com",
+      messagingSenderId: "856833742297",
+      appId: "1:856833742297:web:e66030aab33c1b3ceff5c8",
+      measurementId: "G-QZS8LFJKBN"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    var database = firebase.database();
+
+    console.log("Firebase inicializado correctamente:", firebase);
+  </script>
+
+  <!-- Tu script de juego -->
+  <script src="./script.js"></script>
+
+
+</body>
+
+</html>

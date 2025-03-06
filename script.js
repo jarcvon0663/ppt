@@ -41,12 +41,15 @@ function joinRoom() {
   }
 
   const roomRef = database.ref("rooms/" + roomID);
+
   roomRef.once("value", (snapshot) => {
     const roomData = snapshot.val();
+
     if (!roomData) {
       alert("La sala no existe.");
       return;
     }
+
     if (!roomData.player2.choice) {
       roomRef.child("player2").update({ choice: "", points: 0 });
       sessionStorage.setItem("roomID", roomID);
@@ -60,35 +63,7 @@ function joinRoom() {
   });
 }
 
-function checkChoicesAndDecideWinner() {
-  const roomRef = database.ref(`rooms/${currentRoom}`);
-  roomRef.once("value", (snapshot) => {
-    const roomData = snapshot.val();
-    if (roomData.player1.choice && roomData.player2.choice) {
-      const choice1 = roomData.player1.choice;
-      const choice2 = roomData.player2.choice;
-      let winner = "";
-
-      if (choice1 === choice2) {
-        alert("Empate! 🤝");
-      } else if (
-        (choice1 === "piedra" && choice2 === "tijeras") ||
-        (choice1 === "papel" && choice2 === "piedra") ||
-        (choice1 === "tijeras" && choice2 === "papel")
-      ) {
-        winner = "player1";
-      } else {
-        winner = "player2";
-      }
-
-      if (winner) {
-        alert(`${winner === "player1" ? "Jugador 1" : "Jugador 2"} gana esta ronda! 🎉`);
-        database.ref(`rooms/${currentRoom}/${winner}`).update({ points: roomData[winner].points + 1 });
-      }
-    }
-  });
-}
-
+// Lógica del juego
 options.forEach((option) => {
   option.addEventListener("click", () => {
     if (!currentRoom) {
@@ -97,11 +72,59 @@ options.forEach((option) => {
     }
 
     const playerChoice = option.innerHTML.toLowerCase();
-    player.src = `./img/${playerChoice}Player.png`;
-    
-    const playerRef = database.ref(`rooms/${currentRoom}/player${playerNumber}`);
-    playerRef.update({ choice: playerChoice }).then(() => {
-      checkChoicesAndDecideWinner();
-    });
+    player.classList.add("shakePlayer");
+    computer.classList.add("shakeComputer");
+
+    setTimeout(() => {
+      player.classList.remove("shakePlayer");
+      computer.classList.remove("shakeComputer");
+
+      // Guardar la elección en Firebase
+      const playerRef = database.ref(`rooms/${currentRoom}/player${playerNumber}`);
+      playerRef.update({ choice: playerChoice });
+    }, 900);
   });
+});
+
+// Escuchar cambios en Firebase para actualizar la UI
+const roomRef = database.ref("rooms/");
+roomRef.on("value", (snapshot) => {
+  const roomData = snapshot.val();
+  if (!roomData || !currentRoom) return;
+
+  const room = roomData[currentRoom];
+  if (!room) return;
+
+  const player1Choice = room.player1.choice;
+  const player2Choice = room.player2.choice;
+
+  if (player1Choice && player2Choice) {
+    player.src = `./img/${player1Choice}Player.png`;
+    computer.src = `./img/${player2Choice}Computer.png`;
+
+    let p1Points = room.player1.points;
+    let p2Points = room.player2.points;
+    let winner = "";
+
+    if (player1Choice === player2Choice) {
+      winner = "Empate!";
+    } else if (
+      (player1Choice === "piedra" && player2Choice === "tijeras") ||
+      (player1Choice === "papel" && player2Choice === "piedra") ||
+      (player1Choice === "tijeras" && player2Choice === "papel")
+    ) {
+      winner = "¡Jugador 1 gana esta ronda!";
+      p1Points++;
+    } else {
+      winner = "¡Jugador 2 gana esta ronda!";
+      p2Points++;
+    }
+
+    alert(winner);
+
+    database.ref(`rooms/${currentRoom}/player1`).update({ points: p1Points });
+    database.ref(`rooms/${currentRoom}/player2`).update({ points: p2Points });
+    playerPoints.innerHTML = p1Points;
+    computerPoints.innerHTML = p2Points;
+  }
 });

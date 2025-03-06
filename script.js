@@ -1,20 +1,38 @@
-// script.js
 const computerImg = document.querySelector(".computer img");
 const playerImg = document.querySelector(".player img");
 const computerPoints = document.querySelector(".computerPoints");
 const playerPoints = document.querySelector(".playerPoints");
 const options = document.querySelectorAll(".options button");
+const sendButton = document.createElement("button");
 const roomInfo = document.getElementById("roomInfo");
 const message = document.querySelector(".message");
 
 let currentRoom = null;
 let playerNumber = null;
 let playerRef = null;
-let isChoosing = false;
+let hasSent = false;
+
+// Crear botón de enviar
+sendButton.textContent = "Enviar jugada";
+sendButton.style.marginTop = "10px";
+sendButton.disabled = true;
+document.querySelector(".options").appendChild(sendButton);
 
 // Generar ID de sala
 function generateRoomID() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function setupDisconnectHandler() {
+  if (!playerRef) return; // Verifica que playerRef esté definido
+
+  playerRef.onDisconnect().remove() // Elimina al jugador de la sala si se desconecta
+    .then(() => {
+      console.log("Handler de desconexión configurado.");
+    })
+    .catch((error) => {
+      console.error("Error configurando el handler de desconexión:", error);
+    });
 }
 
 // Crear sala
@@ -24,15 +42,15 @@ function createRoom() {
   playerNumber = 1;
 
   database.ref(`rooms/${roomID}`).set({
-    player1: { choice: "", points: 0 }, // Inicia sin elección
-    player2: null
+    player1: { choice: "", sent: false, points: 0 },
+    player2: { choice: "", sent: false, points: 0 }
   }).then(() => {
     playerRef = database.ref(`rooms/${currentRoom}/player1`);
     setupListeners();
     setupDisconnectHandler();
     roomInfo.textContent = `Sala creada: ${roomID}`;
     showMessage("Esperando jugador...");
-    document.getElementById("roomIDInput").value = roomID; // Autocompletar ID
+    document.getElementById("roomIDInput").value = roomID;
   });
 }
 
@@ -44,20 +62,25 @@ function joinRoom() {
   database.ref(`rooms/${roomID}`).once("value").then(snapshot => {
     const roomData = snapshot.val();
     if (!roomData) return alert("Sala no existe");
-    if (roomData.player2) return alert("Sala llena");
-
+    
     currentRoom = roomID;
     playerNumber = 2;
+    playerRef = database.ref(`rooms/${currentRoom}/player2`);
+    
+    // Verificar si el jugador 2 ya existe
+    if (roomData.player2 && roomData.player2.choice) {
+      return alert("Sala llena");
+    }
 
     database.ref(`rooms/${currentRoom}/player2`).set({
       choice: "",
+      sent: false,
       points: 0
     }).then(() => {
-      playerRef = database.ref(`rooms/${currentRoom}/player2`);
       setupListeners();
       setupDisconnectHandler();
       roomInfo.textContent = `Unido a: ${roomID}`;
-      showMessage("Esperando elección del oponente...");
+      showMessage("Esperando oponente...");
     });
   });
 }
@@ -68,62 +91,23 @@ function setupListeners() {
     const room = snapshot.val();
     if (!room) return;
 
-    // Actualizar imágenes
+    // Actualizar UI
     const opponent = playerNumber === 1 ? room.player2 : room.player1;
     const playerData = playerNumber === 1 ? room.player1 : room.player2;
 
-    computerImg.src = opponent?.choice 
+    // Mostrar elecciones solo si han sido enviadas
+    computerImg.src = opponent.sent 
       ? `./img/${opponent.choice}${playerNumber === 1 ? 'Computer' : 'Player'}.png`
-      : "./img/piedraComputer.png"; // Imagen por defecto
+      : "./img/piedraComputer.png";
     
-    playerImg.src = playerData.choice 
+    playerImg.src = playerData.sent 
       ? `./img/${playerData.choice}Player.png`
       : "./img/piedraPlayer.png";
 
-    // Actualizar puntos
-    computerPoints.textContent = playerNumber === 1 
-      ? opponent?.points || 0 
-      : room.player1.points;
-    
-    playerPoints.textContent = playerData.points;
-
-    // Verificar elecciones
-    if (room.player1.choice && room.player2?.choice && !isChoosing) {
-      isChoosing = true;
-      determineWinner(room);
+    // Verificar si ambos enviaron
+    if (room.player1.sent && room.player2.sent) {
+      startResultAnimation(room);
     }
-  });
-}
-
-// Determinar ganador
-function determineWinner(room) {
-  const p1 = room.player1;
-  const p2 = room.player2;
-  
-  let winner = "";
-  if (p1.choice === p2.choice) {
-    winner = "¡Empate!";
-  } else if (
-    (p1.choice === "piedra" && p2.choice === "tijeras") ||
-    (p1.choice === "papel" && p2.choice === "piedra") ||
-    (p1.choice === "tijeras" && p2.choice === "papel")
-  ) {
-    winner = "¡Jugador 1 gana!";
-    updatePoints("player1");
-  } else {
-    winner = "¡Jugador 2 gana!";
-    updatePoints("player2");
-  }
-  
-  // Mostrar resultado en mensaje no bloqueante
-  showMessage(winner, 3000);
-  resetChoicesAfterDelay(3000);
-}
-
-// Actualizar puntos
-function updatePoints(winner) {
-  database.ref(`rooms/${currentRoom}/${winner}/points`).transaction(points => {
-    return (points || 0) + 1;
   });
 }
 
@@ -131,35 +115,90 @@ function updatePoints(winner) {
 options.forEach(option => {
   option.addEventListener("click", () => {
     if (!currentRoom) return alert("Únete o crea una sala primero");
-    if (isChoosing) return; // Prevenir múltiples clicks
-    
+    if (hasSent) return;
+
     const choice = option.textContent.toLowerCase();
-    isChoosing = true;
     playerRef.update({ choice: choice });
-    showMessage("Esperando oponente...");
+    sendButton.disabled = false;
+    showMessage("¡Listo! Pulsa 'Enviar jugada'");
   });
 });
 
-// Limpiar al desconectar
-function setupDisconnectHandler() {
-  playerRef.onDisconnect().remove().then(() => {
-    if (playerNumber === 1) {
-      database.ref(`rooms/${currentRoom}`).remove();
-    }
+// Enviar jugada
+sendButton.addEventListener("click", () => {
+  if (!currentRoom || hasSent) return;
+  
+  hasSent = true;
+  sendButton.disabled = true;
+  playerRef.update({ sent: true });
+  showMessage("Esperando al oponente...");
+});
+
+// Animación de resultado
+function startResultAnimation(room) {
+  // Mostrar animación de espera
+  computerImg.classList.add("shake");
+  playerImg.classList.add("shake");
+  showMessage("¡Jugando!");
+
+  setTimeout(() => {
+    computerImg.classList.remove("shake");
+    playerImg.classList.remove("shake");
+    
+    // Calcular ganador
+    const result = determineWinner(room);
+    showMessage(result, 3000);
+    
+    // Actualizar puntos
+    updatePoints(result);
+    
+    // Reiniciar para siguiente ronda
+    resetRound();
+  }, 2000);
+}
+
+// Determinar ganador
+function determineWinner(room) {
+  const p1 = room.player1;
+  const p2 = room.player2;
+  
+  if (p1.choice === p2.choice) return "¡Empate!";
+  
+  const rules = {
+    piedra: "tijeras",
+    papel: "piedra",
+    tijeras: "papel"
+  };
+
+  if (rules[p1.choice] === p2.choice) {
+    return "¡Jugador 1 gana!";
+  } else {
+    return "¡Jugador 2 gana!";
+  }
+}
+
+// Actualizar puntos
+function updatePoints(result) {
+  if (result.includes("Empate")) return;
+
+  const winner = result.includes("1") ? "player1" : "player2";
+  database.ref(`rooms/${currentRoom}/${winner}/points`).transaction(points => {
+    return (points || 0) + 1;
   });
 }
 
-// Resetear elecciones después de 3 segundos
-function resetChoicesAfterDelay(delay) {
+// Reiniciar ronda
+function resetRound() {
   setTimeout(() => {
-    database.ref(`rooms/${currentRoom}/player1`).update({ choice: "" });
-    database.ref(`rooms/${currentRoom}/player2`).update({ choice: "" });
-    isChoosing = false;
+    database.ref(`rooms/${currentRoom}/player1`).update({ choice: "", sent: false });
+    database.ref(`rooms/${currentRoom}/player2`).update({ choice: "", sent: false });
+    hasSent = false;
+    sendButton.disabled = true;
     showMessage("Elige");
-  }, delay);
+  }, 3000);
 }
 
-// Mostrar mensajes en UI
+// Sistema de mensajes
 function showMessage(text, timeout = 0) {
   message.textContent = text;
   if (timeout > 0) {

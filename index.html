@@ -3,6 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Juego de Piedra, Papel o Tijeras multijugador">
   <title>Piedra, Papel o Tijeras</title>
   <link rel="stylesheet" href="./style.css">
   <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
@@ -30,20 +32,32 @@
       <span class="playerPoints">0</span> Jugador
     </div>
 
-    <div class="options">
-      <button type="button">Piedra</button>
-      <button type="button">Papel</button>
-      <button type="button">Tijeras</button>
-    </div>
+    <aside class="controles">
+      <div class="options">
+        <button type="button">Piedra</button>
+        <button type="button">Papel</button>
+        <button type="button">Tijeras</button>
+      </div>
+  
+      <div class="enviar" id="enviar"></div>
+    </aside>
+    
 
     <!-- Sección para crear o unirse a una sala -->
-    <div class="room">
-      <button onclick="createRoom()">Crear Sala</button>
-      <input type="text" id="roomIDInput" placeholder="ID de la sala">
-      <button onclick="joinRoom()">Unirse</button>
+    <div class="room-container">
+      <div class="room-box">
+        <button class="btn" onclick="createRoom()">Crear Sala</button>
+        <div class="input-group">
+          <input type="text" id="roomIDInput" placeholder="ID de la sala">
+          <button class="btn" onclick="joinRoom()">Unirse</button>
+        </div>
+        <p id="roomInfo"></p>
+        <button class="copy-btn" id="copyButton" onclick="copyRoomID()">
+          📋 Copiar ID
+        </button>
+        <div id="copyNotification"></div>
+      </div>
     </div>
-
-    <p id="roomInfo"></p> <!-- Aquí se mostrará el ID de la sala -->
 
   </div>
 

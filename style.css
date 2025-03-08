@@ -36,28 +36,151 @@ body {
 .playerPoints {
   margin-right: 3em;
 }
+
+/* Estilos para contenedor principal */
 .options {
-  margin-top: 5em;
+  margin-top: 3em;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
+
 .options button {
   background: none;
   color: #fff;
-  font-family: "Poppins";
   border: 1px solid #fff;
   padding: 1em 2em;
   border-radius: 7px;
   width: 150px;
-  white-space: nowrap;
   cursor: pointer;
-  outline: none;
   transition: 0.2s all linear;
+  font-family: 'Poppins';
 }
+
 .options button:hover {
   background-color: darkcyan;
-  border: 1px solid darkcyan;
+  border-color: darkcyan;
 }
+
+/* Contenedor del botón de enviar */
+.enviar {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.enviar button {
+  background: #5c6bc0;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.enviar button:hover {
+  background: #3f51b5;
+}
+
+.enviar button:disabled {
+  background: #7e8db3;
+  cursor: not-allowed;
+}
+
+/* Estilos para la sección de salas */
+.room-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 15px;
+  margin: 2rem 0;
+}
+
+.room-box {
+  text-align: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+#roomIDInput {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #4a4a4a;
+  border-radius: 7px;
+  background: #3a3a3a;
+  color: white;
+  font-family: 'Poppins';
+}
+
+.btn {
+  padding: 12px 25px;
+  border: none;
+  border-radius: 7px;
+  background: #5c6bc0;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.btn:hover {
+  background: #3f51b5;
+}
+
+.copy-btn {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #4caf50;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: none; /* Oculto inicialmente */
+}
+
+.copy-btn:hover {
+  background: #45a049;
+}
+
+#roomInfo {
+  margin: 15px 0 0;
+  font-size: 1.1em;
+  color: #e0e0e0;
+}
+
+#copyNotification {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: #4caf50;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 12px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Estilo para error */
+#copyNotification.error {
+  color: #ff5252;
+}
+
 @keyframes shakeComputer {
   0% {
     transform: rotate(-30deg);
@@ -90,5 +213,110 @@ body {
   }
   100% {
     transform: rotate(0deg);
+  }
+}
+
+/* Media Queries para móviles en landscape */
+@media screen and (max-width: 900px) and (orientation: landscape) {
+  body {
+    margin: 0px;
+  }
+
+  .container {
+    margin-top: 0px;
+  }
+
+  .message {
+    margin: 10px;
+  }
+
+  .room-container {
+    min-height: 120px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .room-box {
+    max-width: 300px;
+  }
+
+  .input-group {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  #roomIDInput {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.9em;
+  }
+
+  .btn {
+    padding: 10px;
+    font-size: 0.9em;
+  }
+
+  .options {
+    gap: 10px;
+    margin-top: 1.5em;
+  }
+
+  .options button {
+    width: 120px;
+    padding: 0.8em 1.5em;
+    font-size: 0.9em;
+  }
+
+  .enviar {
+    margin-top: 15px;
+  }
+
+  .enviar button {
+    padding: 10px 25px;
+    font-size: 0.9em;
+  }
+  
+  .images {
+    height: 150px;
+  }
+
+  .computer img,
+  .player img {
+    width: 60%;
+  }
+
+  .points {
+    margin: 0.5em 0;
+    font-size: 0.9em;
+  }
+
+  .computerPoints {
+    margin-left: 1.5em;
+  }
+
+  .playerPoints {
+    margin-right: 1.5em;
+  }
+
+  #copyNotification {
+    font-size: 0.8em;
+    padding: 6px 10px;
+    top: 50px;
+  }
+
+  @keyframes shakeComputer {
+    0% { transform: rotate(-15deg); }
+    25% { transform: rotate(15deg); }
+    50% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+    100% { transform: rotate(0deg); }
+  }
+
+  @keyframes shakePlayer {
+    0% { transform: rotate(15deg); }
+    25% { transform: rotate(-15deg); }
+    50% { transform: rotate(15deg); }
+    75% { transform: rotate(-15deg); }
+    100% { transform: rotate(0deg); }
   }
 }

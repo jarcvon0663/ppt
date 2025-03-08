@@ -21,10 +21,10 @@ body {
   width: 75%;
 }
 .shakeComputer {
-  animation: shakeComputer 0.8s linear;
+  animation: shakeComputer 0.8s linear infinite;
 }
 .shakePlayer {
-  animation: shakePlayer 0.8s linear;
+  animation: shakePlayer 0.8s linear infinite;
 }
 .points {
   margin: 2em 0;
@@ -318,5 +318,62 @@ body {
     50% { transform: rotate(15deg); }
     75% { transform: rotate(-15deg); }
     100% { transform: rotate(0deg); }
+  }
+}
+
+/* Dispositivos móviles pequeños (hasta 480px) */
+@media screen and (max-width: 480px) {
+  .message {
+    margin: 0px;
+    font-size: 1.2em;
+  }
+  
+  .images {
+    flex-direction: flex;
+    height: auto;
+  }
+
+  .computer img,
+  .player img {
+    width: 70%;
+  }
+
+  .computerPoints,
+  .playerPoints {
+    margin: 0.5em 0;
+  }
+
+  .options {
+    flex-direction: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .options button {
+    width: 30%;
+    max-width: 120px;
+  }
+
+  .enviar {
+    flex-direction: row;
+  }
+
+  .enviar button {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .room-container {
+    padding: 1rem;
+    min-height: auto;
+  }
+
+  .input-group {
+    flex-direction: row;
+    width: 80%;
+  }
+
+  .btn {
+    width: 80%;
   }
 }

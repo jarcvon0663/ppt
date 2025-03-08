@@ -290,7 +290,7 @@ function resetRound() {
     hasSent = false;
     sendButton.disabled = true;
     showMessage("Elige");
-  }, 5000);
+  }, 500);
 }
 
 // Sistema de mensajes

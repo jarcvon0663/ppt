@@ -11,6 +11,7 @@ let currentRoom = null;
 let playerNumber = null;
 let playerRef = null;
 let hasSent = false;
+let inactivityCheck;
 
 // Crear botón de enviar
 sendButton.textContent = "Enviar jugada";
@@ -24,17 +25,51 @@ function generateRoomID() {
 }
 
 function setupDisconnectHandler() {
-  if (!playerRef) return; // Verifica que playerRef esté definido
+  if (!playerRef) return;
 
-  playerRef
-    .onDisconnect()
-    .remove() // Elimina al jugador de la sala si se desconecta
+  playerRef.onDisconnect().remove()
     .then(() => {
-      console.log("Handler de desconexión configurado.");
+      console.log("Handler de desconexión configurado");
+      checkEmptyRoom();
     })
     .catch((error) => {
-      console.error("Error configurando el handler de desconexión:", error);
+      console.error("Error configurando handler:", error);
     });
+}
+
+// Verificar si la sala está vacía
+function checkEmptyRoom() {
+  database.ref(`rooms/${currentRoom}`).once('value')
+    .then(snapshot => {
+      const room = snapshot.val();
+      if (room && (!room.player1 || !room.player2)) {
+        database.ref(`rooms/${currentRoom}`).remove()
+          .then(() => {
+            clearInterval(inactivityCheck);
+            showMessage("Sala eliminada por inactividad");
+          });
+      }
+    });
+}
+
+// Iniciar verificación de inactividad
+function startInactivityCheck() {
+  inactivityCheck = setInterval(() => {
+    if (!currentRoom) return;
+    
+    database.ref(`rooms/${currentRoom}`).once('value')
+      .then(snapshot => {
+        const room = snapshot.val();
+        if (room && Date.now() - room.lastActive > 70000) {
+          database.ref(`rooms/${currentRoom}`).remove()
+            .then(() => {
+              clearInterval(inactivityCheck);
+              showMessage('Sala eliminada por inactividad');
+              window.location.reload();
+            });
+        }
+      });
+  }, 60000);
 }
 
 // Crear sala
@@ -46,25 +81,35 @@ function createRoom() {
   const playerName = prompt("Ingresa tu nombre:");
   if (!playerName) return alert("Debes ingresar un nombre.");
 
-  database
-    .ref(`rooms/${roomID}`)
-    .set({
-      player1: { name: playerName, choice: "", sent: false, points: 0 },
-      player2: { name: "", choice: "", sent: false, points: 0 },
-      gameState: "waiting",
-    })
-    .then(() => {
-      playerRef = database.ref(`rooms/${currentRoom}/player1`);
-      setupListeners();
-      setupDisconnectHandler();
-      roomInfo.textContent = `Sala creada: ${roomID}`;
-      showMessage("Esperando jugador...");
-      document.getElementById("roomIDInput").value = roomID;
-      document.getElementById("copyButton").style.display = "inline-block";
-    });
+  database.ref(`rooms/${roomID}`).set({
+    player1: { 
+      name: playerName, 
+      choice: "", 
+      sent: false, 
+      points: 0 
+    },
+    player2: { 
+      name: "", 
+      choice: "", 
+      sent: false, 
+      points: 0 
+    },
+    gameState: "waiting",
+    lastActive: Date.now()
+  }).then(() => {
+    playerRef = database.ref(`rooms/${currentRoom}/player1`);
+    setupListeners();
+    setupDisconnectHandler();
+    roomInfo.textContent = `Sala creada: ${roomID}`;
+    showMessage("Esperando jugador...");
+    document.getElementById("roomIDInput").value = roomID;
+    document.getElementById("copyButton").style.display = "inline-block";
+    
+    startInactivityCheck();
+  });
 }
 
-// Copiar ID de sala con notificación discreta
+// Copiar ID de sala
 function copyRoomID() {
   const roomID = document.getElementById("roomIDInput").value;
   const notification = document.getElementById("copyNotification");
@@ -72,11 +117,8 @@ function copyRoomID() {
   if (roomID) {
     navigator.clipboard.writeText(roomID)
       .then(() => {
-        // Mostrar notificación
         notification.textContent = "¡ID copiado al portapapeles!";
         notification.style.opacity = 1;
-        
-        // Ocultar después de 2 segundos
         setTimeout(() => {
           notification.style.opacity = 0;
         }, 1000);
@@ -111,10 +153,14 @@ function joinRoom() {
 
     playerRef = database.ref(`rooms/${currentRoom}/player${playerNumber}`);
     playerRef.update({ name: playerName });
+    
+    database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
 
     setupListeners();
     setupDisconnectHandler();
     showMessage(`Te uniste a la sala: ${roomID}`);
+    
+    startInactivityCheck();
   });
 }
 
@@ -141,11 +187,9 @@ function startResultAnimation(room) {
     }.png`;
     playerImg.src = `./img/${playerData.choice}Player.png`;
 
-    // Todos los jugadores determinan el resultado
-    const result = determineWinner(room);
+    const result = determineWinner(room); // ¡Aquí se usa la función!
     showMessage(result, 3000);
 
-    // Solo el jugador 1 actualiza el gameState
     if (playerNumber === 1) {
       database.ref(`rooms/${currentRoom}`).update({ gameState: "waiting" });
     }
@@ -161,12 +205,16 @@ function startResultAnimation(room) {
 function setupListeners() {
   database.ref(`rooms/${currentRoom}`).on("value", (snapshot) => {
     const room = snapshot.val();
-    if (!room) return;
+    if (!room) {
+      clearInterval(inactivityCheck);
+      showMessage("La sala fue eliminada por inactividad");
+      setTimeout(() => window.location.reload(), 3000);
+      return;
+    }
 
     const opponent = playerNumber === 1 ? room.player2 : room.player1;
     const playerData = playerNumber === 1 ? room.player1 : room.player2;
 
-    // 🔵 Mostrar nombres y puntos actualizados en la UI
     document.querySelector(".points").innerHTML = `
       ${opponent.name || "Adversario"} <span class="computerPoints">${
       opponent.points
@@ -176,21 +224,18 @@ function setupListeners() {
     }
     `;
 
-    // 🔴 Si el juego está en estado "animating", activar animación
     if (room.gameState === "animating") {
       startResultAnimation(room);
-      return; // Evita ejecutar el resto hasta que termine la animación
+      return;
     }
 
-    // 🔴 No mostrar la elección del oponente hasta que ambos hayan enviado su jugada
     if (room.player1.sent && room.player2.sent) {
-      // Retrasar 2 segundos la actualización de las imágenes
       setTimeout(() => {
         computerImg.src = `./img/${opponent.choice}${
           playerNumber === 1 ? "Computer" : "Player"
         }.png`;
         playerImg.src = `./img/${playerData.choice}Player.png`;
-      }, 2000); // Tiempo de espera
+      }, 2000);
     } else {
       computerImg.src = "./img/piedraComputer.png";
       playerImg.src = "./img/piedraPlayer.png";
@@ -206,6 +251,9 @@ options.forEach((option) => {
 
     const choice = option.textContent.toLowerCase();
     playerRef.update({ choice: choice });
+    
+    database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
+    
     sendButton.disabled = false;
     showMessage("¡Listo! Pulsa 'Enviar jugada'");
   });
@@ -219,8 +267,9 @@ sendButton.addEventListener("click", () => {
   sendButton.disabled = true;
   playerRef.update({ sent: true });
   showMessage("Esperando al oponente...");
+  
+  database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
 
-  // 🔥 Usar transacción para evitar carreras
   database.ref(`rooms/${currentRoom}`).transaction((room) => {
     if (
       room &&
@@ -234,59 +283,16 @@ sendButton.addEventListener("click", () => {
   });
 });
 
-// Determinar ganador (ahora usado por todos los jugadores)
-function determineWinner(room) {
-  const p1 = room.player1.choice;
-  const p2 = room.player2.choice;
-
-  // 🛠️ Agregar logs para depuración
-  console.log("------ NUEVA JUGADA ------");
-  console.log("Player 1 (Arturo) eligió:", p1);
-  console.log("Player 2 (Denis) eligió:", p2);
-
-  if (p1 === p2) {
-    console.log("Resultado: EMPATE");
-    return "Empate";
-  }
-
-  // Lógica de victoria
-  let winner;
-  if (
-    (p1 === "piedra" && p2 === "tijeras") ||
-    (p1 === "papel" && p2 === "piedra") ||
-    (p1 === "tijeras" && p2 === "papel")
-  ) {
-    winner = "player1";
-    console.log("Resultado: Gana Player 1 (Arturo)");
-  } else {
-    winner = "player2";
-    console.log("Resultado: Gana Player 2 (Denis)");
-  }
-
-  // Actualizar puntos (solo jugador 1)
-  if (playerNumber === 1) {
-    console.log("Actualizando puntos para:", winner);
-    database
-      .ref(`rooms/${currentRoom}/${winner}/points`)
-      .transaction((points) => (points || 0) + 1);
-  }
-
-  // Mensaje para el jugador actual
-  const message = winner === `player${playerNumber}` ? "¡Ganaste!" : "Perdiste";
-
-  console.log("Mensaje mostrado al jugador:", message);
-  return message;
-}
-
 // Reiniciar ronda
 function resetRound() {
   setTimeout(() => {
-    database
-      .ref(`rooms/${currentRoom}/player1`)
+    database.ref(`rooms/${currentRoom}/player1`)
       .update({ choice: "", sent: false });
-    database
-      .ref(`rooms/${currentRoom}/player2`)
+    database.ref(`rooms/${currentRoom}/player2`)
       .update({ choice: "", sent: false });
+    
+    database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
+    
     hasSent = false;
     sendButton.disabled = true;
     showMessage("Elige");
@@ -305,3 +311,40 @@ function showMessage(text, timeout = 0) {
 
 // Estado inicial
 showMessage("Elige");
+
+// Limpiar al cerrar ventana
+window.addEventListener('beforeunload', () => {
+  if (currentRoom) {
+    clearInterval(inactivityCheck);
+    database.ref(`rooms/${currentRoom}`).off();
+  }
+});
+
+// FUNCIÓN DETERMINEWINNER ORIGINAL 
+function determineWinner(room) {
+  const p1 = room.player1.choice;
+  const p2 = room.player2.choice;
+
+  if (p1 === p2) {
+    return "Empate";
+  }
+
+  let winner;
+  if (
+    (p1 === "piedra" && p2 === "tijeras") ||
+    (p1 === "papel" && p2 === "piedra") ||
+    (p1 === "tijeras" && p2 === "papel")
+  ) {
+    winner = "player1";
+  } else {
+    winner = "player2";
+  }
+
+  if (playerNumber === 1) {
+    database
+      .ref(`rooms/${currentRoom}/${winner}/points`)
+      .transaction((points) => (points || 0) + 1);
+  }
+
+  return winner === `player${playerNumber}` ? "¡Ganaste!" : "Perdiste";
+}

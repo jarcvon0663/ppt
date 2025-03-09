@@ -24,16 +24,16 @@ function generateRoomID() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-function setupDisconnectHandler() {
-  if (!playerRef) return;
+// Configurar handler de desconexión
+function setupDisconnectHandler(roomRef) {
+  if (!roomRef) return;
 
-  playerRef.onDisconnect().remove()
+  roomRef.onDisconnect().remove()
     .then(() => {
-      console.log("Handler de desconexión configurado");
-      checkEmptyRoom();
+      console.log("Sala eliminada porque un jugador cerró el navegador.");
     })
     .catch((error) => {
-      console.error("Error configurando handler:", error);
+      console.error("Error configurando handler de desconexión:", error);
     });
 }
 
@@ -99,7 +99,10 @@ function createRoom() {
   }).then(() => {
     playerRef = database.ref(`rooms/${currentRoom}/player1`);
     setupListeners();
-    setupDisconnectHandler();
+    
+    // Configurar eliminación si un jugador cierra el navegador
+    setupDisconnectHandler(database.ref(`rooms/${roomID}`)); 
+    
     roomInfo.textContent = `Sala creada: ${roomID}`;
     showMessage("Esperando jugador...");
     document.getElementById("roomIDInput").value = roomID;
@@ -157,7 +160,10 @@ function joinRoom() {
     database.ref(`rooms/${currentRoom}/lastActive`).set(Date.now());
 
     setupListeners();
-    setupDisconnectHandler();
+    
+    // Configurar eliminación si un jugador cierra el navegador
+    setupDisconnectHandler(database.ref(`rooms/${roomID}`));
+
     showMessage(`Te uniste a la sala: ${roomID}`);
     
     startInactivityCheck();
